@@ -1,0 +1,719 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MEMO - Engraves Memories Onchain</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-primary: #0b0f19;
+      --bg-secondary: #111827;
+      --bg-card: #151c2c;
+      --accent-blue: #3b82f6;
+      --accent-cyan: #06b6d4;
+      --text-primary: #f1f5f9;
+      --text-secondary: #94a3b8;
+      --border-color: #1e293b;
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .container {
+      max-width: 900px;
+      width: 100%;
+      padding: 40px 20px;
+    }
+
+    .page-header {
+      text-align: center;
+      margin-bottom: 30px;
+    }
+
+    .contract-name {
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: var(--text-primary);
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+    }
+
+    .contract-logo {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+    }
+
+    .contract-address {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: var(--bg-secondary);
+      padding: 8px 16px;
+      border-radius: 8px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.85rem;
+      color: var(--text-secondary);
+      border: 1px solid var(--border-color);
+      text-decoration: none;
+      transition: all 0.2s ease;
+    }
+
+    .contract-address:hover {
+      border-color: var(--accent-blue);
+      color: var(--text-primary);
+    }
+
+    .contract-address i {
+      color: var(--accent-blue);
+    }
+
+    .card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      overflow: hidden;
+    }
+
+    .card-header {
+      padding: 20px 24px;
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    .card-title {
+      font-size: 1.1rem;
+      font-weight: 600;
+      color: var(--text-primary);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .card-title i {
+      color: var(--accent-blue);
+    }
+
+    .stat-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 20px 24px;
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    .stat-row:last-of-type {
+      border-bottom: none;
+    }
+
+    .stat-label {
+      font-size: 0.95rem;
+      color: var(--text-secondary);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .stat-label i {
+      width: 20px;
+      text-align: center;
+      color: var(--accent-cyan);
+    }
+
+    .stat-value {
+      font-size: 1.1rem;
+      font-weight: 600;
+      font-family: 'JetBrains Mono', monospace;
+      color: var(--text-primary);
+    }
+
+    .stat-value.loading {
+      color: var(--text-secondary);
+      font-size: 0.9rem;
+    }
+
+    .chart-section {
+      padding: 20px 24px;
+      border-top: 1px solid var(--border-color);
+    }
+
+    .chart-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+    }
+
+    .chart-title {
+      font-size: 0.95rem;
+      color: var(--text-secondary);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .chart-title i {
+      color: var(--accent-cyan);
+    }
+
+    .time-filters {
+      display: flex;
+      gap: 8px;
+    }
+
+    .time-btn {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border-color);
+      color: var(--text-secondary);
+      padding: 6px 14px;
+      border-radius: 6px;
+      font-size: 0.85rem;
+      font-family: 'JetBrains Mono', monospace;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .time-btn:hover {
+      border-color: var(--accent-blue);
+      color: var(--text-primary);
+    }
+
+    .time-btn.active {
+      background: var(--accent-blue);
+      border-color: var(--accent-blue);
+      color: white;
+    }
+
+    .chart-wrapper {
+      height: 280px;
+      position: relative;
+    }
+
+    .loading-overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(21, 28, 44, 0.9);
+      border-radius: 8px;
+    }
+
+    .loading-overlay i {
+      font-size: 2rem;
+      color: var(--accent-blue);
+      animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    .status-bar {
+      margin-top: 20px;
+      text-align: center;
+      padding: 12px;
+      background: var(--bg-secondary);
+      border-radius: 8px;
+      font-size: 0.85rem;
+      color: var(--text-secondary);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+
+    .status-bar i {
+      font-size: 0.7rem;
+    }
+
+    .status-bar i.loading {
+      color: var(--accent-blue);
+      animation: pulse 1.5s infinite;
+    }
+
+    .status-bar i.success {
+      color: #22c55e;
+    }
+
+    .status-bar i.error {
+      color: #ef4444;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.4; }
+    }
+
+    @media (max-width: 600px) {
+      .stat-value {
+        font-size: 1rem;
+      }
+      
+      .time-filters {
+        gap: 4px;
+      }
+      
+      .time-btn {
+        padding: 5px 10px;
+        font-size: 0.8rem;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="page-header">
+      <div class="contract-name">
+        <img src="https://raw.githubusercontent.com/xenartist/memo-token/refs/heads/main/metadata/memo_token-logo.png" alt="MEMO Logo" class="contract-logo">
+        MEMO Engraves Memories Onchain
+      </div>
+      <a href="https://explorer.mainnet.x1.xyz/address/memoX1sJsBY6od7CfQ58XooRALwnocAZen4L7mW1ick" target="_blank" class="contract-address">
+        <i class="fas fa-external-link-alt"></i>
+        memoX1sJsBY6od7CfQ58XooRALwnocAZen4L7mW1ick
+      </a>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">
+          <i class="fas fa-chart-line"></i>
+          Live Transaction Stats
+        </div>
+      </div>
+
+      <div class="stat-row">
+        <div class="stat-label">
+          <i class="fas fa-database"></i>
+          Transaction Count
+        </div>
+        <div class="stat-value loading" id="totalSupply">
+          <i class="fas fa-spinner fa-spin"></i> Loading...
+        </div>
+      </div>
+
+      <div class="stat-row">
+        <div class="stat-label">
+          <i class="fas fa-fire"></i>
+          XNT Consumed
+        </div>
+        <div class="stat-value loading" id="xntConsumed">
+          <i class="fas fa-spinner fa-spin"></i> Loading...
+        </div>
+      </div>
+
+      <div class="stat-row">
+        <div class="stat-label">
+          <i class="fas fa-bolt"></i>
+          Transactions per Minute (TPM)
+        </div>
+        <div class="stat-value loading" id="currentTPM">
+          <i class="fas fa-spinner fa-spin"></i> Loading...
+        </div>
+      </div>
+
+      <div class="chart-section">
+        <div class="chart-header">
+          <div class="chart-title">
+            <i class="fas fa-chart-bar"></i>
+            TPM History
+          </div>
+          <div class="time-filters">
+            <button class="time-btn active" data-minutes="30">30m</button>
+          </div>
+        </div>
+        <div class="chart-wrapper">
+          <canvas id="tpmChart"></canvas>
+          <div class="loading-overlay" id="chartLoading">
+            <i class="fas fa-spinner"></i>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="status-bar">
+      <i class="fas fa-circle loading" id="statusDot"></i>
+      <span id="statusText">Connecting to X1 RPC...</span>
+    </div>
+  </div>
+
+  <script>
+    const RPC_URL = 'https://rpc.mainnet.x1.xyz';
+    const MINT_ADDRESS = 'memoX1sJsBY6od7CfQ58XooRALwnocAZen4L7mW1ick';
+    const XNT_PER_TX = 0.0006; // XNT consumed per transaction
+    
+    let tpmChart = null;
+    let tpmHistory = []; // { timestamp: Date, count: number }
+    let currentDisplayMinutes = 30;
+    let estimatedTPM = 50; // Initial estimate, will be updated
+
+    // Format number with commas
+    function formatNumber(num) {
+      return num.toLocaleString('en-US');
+    }
+
+    // Update XNT consumed display
+    function updateXNTConsumed(supply) {
+      const xntConsumed = Math.floor(supply * XNT_PER_TX);
+      document.getElementById('xntConsumed').textContent = formatNumber(xntConsumed) + ' XNT';
+      document.getElementById('xntConsumed').classList.remove('loading');
+    }
+
+    // Update status bar
+    function updateStatus(status, message) {
+      const dot = document.getElementById('statusDot');
+      const text = document.getElementById('statusText');
+      
+      dot.className = 'fas fa-circle ' + status;
+      text.textContent = message;
+    }
+
+    // RPC call helper
+    async function rpcCall(method, params) {
+      const response = await fetch(RPC_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          jsonrpc: '2.0',
+          id: 1,
+          method,
+          params
+        })
+      });
+      
+      const data = await response.json();
+      if (data.error) {
+        throw new Error(data.error.message);
+      }
+      return data.result;
+    }
+
+    // Get token supply
+    async function getTokenSupply() {
+      const result = await rpcCall('getTokenSupply', [MINT_ADDRESS]);
+      // Use uiAmount which accounts for decimals
+      return Math.floor(result.value.uiAmount);
+    }
+
+    // Get recent signatures
+    async function getRecentSignatures(limit = 1000) {
+      const result = await rpcCall('getSignaturesForAddress', [
+        MINT_ADDRESS,
+        { limit }
+      ]);
+      return result || [];
+    }
+
+    // Group signatures by minute
+    function groupByMinute(signatures) {
+      const groups = {};
+      
+      signatures.forEach(sig => {
+        if (sig.blockTime) {
+          // Round down to minute
+          const minuteTimestamp = Math.floor(sig.blockTime / 60) * 60;
+          groups[minuteTimestamp] = (groups[minuteTimestamp] || 0) + 1;
+        }
+      });
+      
+      return groups;
+    }
+
+    // Build TPM history from signatures
+    function buildTPMHistory(signatures) {
+      const grouped = groupByMinute(signatures);
+      const now = Math.floor(Date.now() / 1000);
+      const currentMinute = Math.floor(now / 60) * 60;
+      
+      // Convert to array and sort
+      const entries = Object.entries(grouped)
+        .map(([ts, count]) => ({
+          timestamp: parseInt(ts),
+          count
+        }))
+        .sort((a, b) => a.timestamp - b.timestamp);
+      
+      // Fill in missing minutes with 0
+      if (entries.length > 0) {
+        const minTime = entries[0].timestamp;
+        const maxTime = currentMinute;
+        const filled = [];
+        
+        for (let t = minTime; t <= maxTime; t += 60) {
+          const existing = entries.find(e => e.timestamp === t);
+          filled.push({
+            timestamp: t,
+            count: existing ? existing.count : 0
+          });
+        }
+        
+        return filled;
+      }
+      
+      return entries;
+    }
+
+    // Get chart data based on selected time range
+    function getChartData(minutes) {
+      const now = Math.floor(Date.now() / 1000);
+      const cutoff = now - (minutes * 60);
+      
+      const filtered = tpmHistory.filter(h => h.timestamp >= cutoff);
+      
+      const labels = filtered.map(h => {
+        const date = new Date(h.timestamp * 1000);
+        return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+      });
+      
+      const data = filtered.map(h => h.count);
+      
+      return { labels, data };
+    }
+
+    // Update or create chart
+    function updateChart() {
+      const { labels, data } = getChartData(currentDisplayMinutes);
+      const ctx = document.getElementById('tpmChart').getContext('2d');
+      
+      if (tpmChart) {
+        tpmChart.data.labels = labels;
+        tpmChart.data.datasets[0].data = data;
+        tpmChart.update('none');
+      } else {
+        tpmChart = new Chart(ctx, {
+          type: 'bar',
+          data: {
+            labels,
+            datasets: [{
+              label: 'TPM',
+              data,
+              backgroundColor: '#3b82f6',
+              borderColor: '#3b82f6',
+              borderWidth: 0,
+              borderRadius: 2,
+              barPercentage: 0.85,
+              categoryPercentage: 0.9
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            animation: false,
+            plugins: {
+              legend: {
+                display: false
+              },
+              tooltip: {
+                backgroundColor: '#1e293b',
+                titleColor: '#f1f5f9',
+                bodyColor: '#3b82f6',
+                borderColor: '#334155',
+                borderWidth: 1,
+                padding: 10,
+                displayColors: false,
+                callbacks: {
+                  label: (context) => `${formatNumber(context.raw)} transactions`
+                }
+              }
+            },
+            scales: {
+              x: {
+                grid: {
+                  display: false
+                },
+                ticks: {
+                  color: '#64748b',
+                  maxRotation: 0,
+                  autoSkip: true,
+                  maxTicksLimit: 8,
+                  font: {
+                    family: 'JetBrains Mono',
+                    size: 11
+                  }
+                },
+                border: {
+                  display: false
+                }
+              },
+              y: {
+                grid: {
+                  color: 'rgba(51, 65, 85, 0.5)',
+                  drawBorder: false
+                },
+                ticks: {
+                  color: '#64748b',
+                  font: {
+                    family: 'JetBrains Mono',
+                    size: 11
+                  },
+                  callback: (value) => formatNumber(value)
+                },
+                border: {
+                  display: false
+                },
+                beginAtZero: true
+              }
+            }
+          }
+        });
+      }
+      
+      document.getElementById('chartLoading').style.display = 'none';
+    }
+
+    // Update current TPM display
+    function updateCurrentTPM() {
+      if (tpmHistory.length > 0) {
+        // Get the most recent complete minute
+        const recentEntries = tpmHistory.slice(-5);
+        const avgTPM = Math.round(recentEntries.reduce((sum, e) => sum + e.count, 0) / recentEntries.length);
+        
+        document.getElementById('currentTPM').textContent = formatNumber(avgTPM);
+        document.getElementById('currentTPM').classList.remove('loading');
+        
+        // Update estimate for next fetch
+        estimatedTPM = Math.max(avgTPM, 10);
+      }
+    }
+
+    // Initial load - fetch 1000 signatures
+    async function initialLoad() {
+      try {
+        updateStatus('loading', 'Fetching initial data...');
+        
+        // Fetch supply and signatures in parallel
+        const [supply, signatures] = await Promise.all([
+          getTokenSupply(),
+          getRecentSignatures(1000)
+        ]);
+        
+        // Update supply and XNT consumed
+        document.getElementById('totalSupply').textContent = formatNumber(supply);
+        document.getElementById('totalSupply').classList.remove('loading');
+        updateXNTConsumed(supply);
+        
+        // Build TPM history
+        if (signatures.length > 0) {
+          tpmHistory = buildTPMHistory(signatures);
+          updateCurrentTPM();
+          updateChart();
+        }
+        
+        const now = new Date().toLocaleTimeString('en-US');
+        updateStatus('success', `Last updated: ${now}`);
+        
+      } catch (error) {
+        console.error('Initial load error:', error);
+        updateStatus('error', `Error: ${error.message}`);
+      }
+    }
+
+    // Periodic update - fetch only recent signatures
+    async function periodicUpdate() {
+      try {
+        updateStatus('loading', 'Updating...');
+        
+        // Estimate how many signatures to fetch (TPM * 2 for safety margin)
+        const fetchLimit = Math.min(Math.max(estimatedTPM * 2, 50), 200);
+        
+        const [supply, signatures] = await Promise.all([
+          getTokenSupply(),
+          getRecentSignatures(fetchLimit)
+        ]);
+        
+        // Update supply and XNT consumed
+        document.getElementById('totalSupply').textContent = formatNumber(supply);
+        updateXNTConsumed(supply);
+        
+        // Update TPM history with new data
+        if (signatures.length > 0) {
+          const newGrouped = groupByMinute(signatures);
+          const now = Math.floor(Date.now() / 1000);
+          const currentMinute = Math.floor(now / 60) * 60;
+          
+          // Merge new data into history
+          Object.entries(newGrouped).forEach(([ts, count]) => {
+            const timestamp = parseInt(ts);
+            const existingIndex = tpmHistory.findIndex(h => h.timestamp === timestamp);
+            
+            if (existingIndex >= 0) {
+              // Update if new count is higher (more complete data)
+              if (count > tpmHistory[existingIndex].count) {
+                tpmHistory[existingIndex].count = count;
+              }
+            } else {
+              // Add new entry
+              tpmHistory.push({ timestamp, count });
+            }
+          });
+          
+          // Sort and fill gaps
+          tpmHistory.sort((a, b) => a.timestamp - b.timestamp);
+          
+          // Add current minute if missing
+          if (!tpmHistory.find(h => h.timestamp === currentMinute)) {
+            tpmHistory.push({ timestamp: currentMinute, count: newGrouped[currentMinute] || 0 });
+          }
+          
+          // Keep only last 3 hours of data
+          const cutoff = now - (3 * 60 * 60);
+          tpmHistory = tpmHistory.filter(h => h.timestamp >= cutoff);
+          
+          updateCurrentTPM();
+          updateChart();
+        }
+        
+        const now2 = new Date().toLocaleTimeString('en-US');
+        updateStatus('success', `Last updated: ${now2}`);
+        
+      } catch (error) {
+        console.error('Update error:', error);
+        updateStatus('error', `Error: ${error.message}`);
+      }
+    }
+
+    // Time filter button handlers
+    function setupTimeFilters() {
+      document.querySelectorAll('.time-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          document.querySelectorAll('.time-btn').forEach(b => b.classList.remove('active'));
+          btn.classList.add('active');
+          currentDisplayMinutes = parseInt(btn.dataset.minutes);
+          updateChart();
+        });
+      });
+    }
+
+    // Main
+    document.addEventListener('DOMContentLoaded', () => {
+      setupTimeFilters();
+      initialLoad();
+      
+      // Update every minute
+      setInterval(periodicUpdate, 60000);
+    });
+  </script>
+</body>
+</html>
+
