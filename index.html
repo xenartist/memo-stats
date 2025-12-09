@@ -266,6 +266,23 @@
       50% { opacity: 0.4; }
     }
 
+    .powered-by {
+      margin-top: 20px;
+      text-align: center;
+      font-size: 0.85rem;
+      color: var(--text-secondary);
+    }
+
+    .powered-by a {
+      color: var(--accent-cyan);
+      text-decoration: none;
+      transition: color 0.2s ease;
+    }
+
+    .powered-by a:hover {
+      color: var(--text-primary);
+    }
+
     @media (max-width: 600px) {
       .stat-value {
         font-size: 1rem;
@@ -305,10 +322,30 @@
 
       <div class="stat-row">
         <div class="stat-label">
-          <i class="fas fa-database"></i>
-          Transaction Count
+          <i class="fas fa-coins"></i>
+          MEMO Minted (In Supply)
         </div>
-        <div class="stat-value loading" id="totalSupply">
+        <div class="stat-value loading" id="memoMinted">
+          <i class="fas fa-spinner fa-spin"></i> Loading...
+        </div>
+      </div>
+
+      <div class="stat-row">
+        <div class="stat-label">
+          <i class="fas fa-fire-flame-curved"></i>
+          MEMO Burned
+        </div>
+        <div class="stat-value loading" id="memoBurned">
+          <i class="fas fa-spinner fa-spin"></i> Loading...
+        </div>
+      </div>
+
+      <div class="stat-row">
+        <div class="stat-label">
+          <i class="fas fa-gas-pump"></i>
+          XNT Consumed
+        </div>
+        <div class="stat-value loading" id="xntConsumed">
           <i class="fas fa-spinner fa-spin"></i> Loading...
         </div>
       </div>
@@ -316,9 +353,9 @@
       <div class="stat-row">
         <div class="stat-label">
           <i class="fas fa-fire"></i>
-          XNT Consumed
+          XNT Burned
         </div>
-        <div class="stat-value loading" id="xntConsumed">
+        <div class="stat-value loading" id="xntBurned">
           <i class="fas fa-spinner fa-spin"></i> Loading...
         </div>
       </div>
@@ -356,28 +393,92 @@
       <i class="fas fa-circle loading" id="statusDot"></i>
       <span id="statusText">Connecting to X1 RPC...</span>
     </div>
+
+    <div class="powered-by">
+      Powered by <a href="https://x1.xyz/" target="_blank">X1 Blockchain</a>
+    </div>
   </div>
 
   <script>
     const RPC_URL = 'https://rpc.mainnet.x1.xyz';
     const MINT_ADDRESS = 'memoX1sJsBY6od7CfQ58XooRALwnocAZen4L7mW1ick';
+    const BURN_PROGRAM_ID = '2sb3gz5Cmr2g1ia5si2rmCZqPACxgaZXEmiS5k6Htcvh';
     const XNT_PER_TX = 0.0006; // XNT consumed per transaction
+    const DECIMAL_FACTOR = 1000000; // Token decimal = 6
     
     let tpmChart = null;
     let tpmHistory = []; // { timestamp: Date, count: number }
     let currentDisplayMinutes = 30;
     let estimatedTPM = 50; // Initial estimate, will be updated
+    let cachedBurnTotal = 0; // Cache burn total to avoid frequent RPC calls
 
     // Format number with commas
     function formatNumber(num) {
       return num.toLocaleString('en-US');
     }
 
-    // Update XNT consumed display
-    function updateXNTConsumed(supply) {
-      const xntConsumed = Math.floor(supply * XNT_PER_TX);
+    // Update all XNT displays
+    function updateXNTDisplays(minted, burned) {
+      const totalTransactions = minted + burned;
+      const xntConsumed = Math.floor(totalTransactions * XNT_PER_TX);
+      const xntBurned = Math.floor(xntConsumed * 0.5);
+      
       document.getElementById('xntConsumed').textContent = formatNumber(xntConsumed) + ' XNT';
       document.getElementById('xntConsumed').classList.remove('loading');
+      
+      document.getElementById('xntBurned').textContent = formatNumber(xntBurned) + ' XNT';
+      document.getElementById('xntBurned').classList.remove('loading');
+    }
+
+    // Parse UserGlobalBurnStats account data
+    // Structure: 8 (discriminator) + 32 (user) + 8 (total_burned) + 8 (burn_count) + 8 (last_burn_time) + 1 (bump)
+    function parseBurnStatsAccount(base64Data) {
+      try {
+        const data = Uint8Array.from(atob(base64Data), c => c.charCodeAt(0));
+        // total_burned is at offset 40 (8 + 32), 8 bytes, little-endian u64
+        if (data.length < 48) return 0;
+        
+        let totalBurned = BigInt(0);
+        for (let i = 0; i < 8; i++) {
+          totalBurned += BigInt(data[40 + i]) << BigInt(i * 8);
+        }
+        
+        // Convert from units to tokens (divide by DECIMAL_FACTOR)
+        return Number(totalBurned / BigInt(DECIMAL_FACTOR));
+      } catch (e) {
+        console.error('Error parsing burn stats:', e);
+        return 0;
+      }
+    }
+
+    // Get total burned from all user accounts
+    async function getTotalBurned() {
+      try {
+        const result = await rpcCall('getProgramAccounts', [
+          BURN_PROGRAM_ID,
+          {
+            encoding: 'base64',
+            filters: [
+              { dataSize: 65 } // UserGlobalBurnStats::SPACE = 8 + 32 + 8 + 8 + 8 + 1 = 65
+            ]
+          }
+        ]);
+        
+        if (!result || result.length === 0) {
+          return 0;
+        }
+        
+        let totalBurned = 0;
+        for (const account of result) {
+          const burned = parseBurnStatsAccount(account.account.data[0]);
+          totalBurned += burned;
+        }
+        
+        return totalBurned;
+      } catch (e) {
+        console.error('Error fetching burn data:', e);
+        return cachedBurnTotal; // Return cached value on error
+      }
     }
 
     // Update status bar
@@ -602,16 +703,26 @@
       try {
         updateStatus('loading', 'Fetching initial data...');
         
-        // Fetch supply and signatures in parallel
-        const [supply, signatures] = await Promise.all([
+        // Fetch supply, burn data, and signatures in parallel
+        const [supply, totalBurned, signatures] = await Promise.all([
           getTokenSupply(),
+          getTotalBurned(),
           getRecentSignatures(1000)
         ]);
         
-        // Update supply and XNT consumed
-        document.getElementById('totalSupply').textContent = formatNumber(supply);
-        document.getElementById('totalSupply').classList.remove('loading');
-        updateXNTConsumed(supply);
+        // Cache burn total
+        cachedBurnTotal = totalBurned;
+        
+        // Update MEMO Minted
+        document.getElementById('memoMinted').textContent = formatNumber(supply);
+        document.getElementById('memoMinted').classList.remove('loading');
+        
+        // Update MEMO Burned
+        document.getElementById('memoBurned').textContent = formatNumber(totalBurned);
+        document.getElementById('memoBurned').classList.remove('loading');
+        
+        // Update XNT displays
+        updateXNTDisplays(supply, totalBurned);
         
         // Build TPM history
         if (signatures.length > 0) {
@@ -637,14 +748,23 @@
         // Estimate how many signatures to fetch (TPM * 2 for safety margin)
         const fetchLimit = Math.min(Math.max(estimatedTPM * 2, 50), 200);
         
-        const [supply, signatures] = await Promise.all([
+        const [supply, totalBurned, signatures] = await Promise.all([
           getTokenSupply(),
+          getTotalBurned(),
           getRecentSignatures(fetchLimit)
         ]);
         
-        // Update supply and XNT consumed
-        document.getElementById('totalSupply').textContent = formatNumber(supply);
-        updateXNTConsumed(supply);
+        // Cache burn total
+        cachedBurnTotal = totalBurned;
+        
+        // Update MEMO Minted
+        document.getElementById('memoMinted').textContent = formatNumber(supply);
+        
+        // Update MEMO Burned
+        document.getElementById('memoBurned').textContent = formatNumber(totalBurned);
+        
+        // Update XNT displays
+        updateXNTDisplays(supply, totalBurned);
         
         // Update TPM history with new data
         if (signatures.length > 0) {
