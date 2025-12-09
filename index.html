@@ -87,6 +87,42 @@
       color: var(--accent-blue);
     }
 
+    .address-list {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      align-items: center;
+    }
+
+    .address-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .address-label {
+      font-size: 0.8rem;
+      color: var(--text-secondary);
+      min-width: 110px;
+      text-align: right;
+    }
+
+    @media (max-width: 600px) {
+      .address-item {
+        flex-direction: column;
+        gap: 4px;
+      }
+      
+      .address-label {
+        text-align: center;
+        min-width: auto;
+      }
+      
+      .contract-address {
+        font-size: 0.7rem;
+      }
+    }
+
     .card {
       background: var(--bg-card);
       border: 1px solid var(--border-color);
@@ -306,10 +342,29 @@
         <img src="https://raw.githubusercontent.com/xenartist/memo-token/refs/heads/main/metadata/memo_token-logo.png" alt="MEMO Logo" class="contract-logo">
         MEMO Engraves Memories Onchain
       </div>
-      <a href="https://explorer.mainnet.x1.xyz/address/memoX1sJsBY6od7CfQ58XooRALwnocAZen4L7mW1ick" target="_blank" class="contract-address">
-        <i class="fas fa-external-link-alt"></i>
-        memoX1sJsBY6od7CfQ58XooRALwnocAZen4L7mW1ick
-      </a>
+      <div class="address-list">
+        <div class="address-item">
+          <span class="address-label">MEMO Token-2022</span>
+          <a href="https://explorer.mainnet.x1.xyz/address/memoX1sJsBY6od7CfQ58XooRALwnocAZen4L7mW1ick" target="_blank" class="contract-address">
+            <i class="fas fa-external-link-alt"></i>
+            memoX1sJsBY6od7CfQ58XooRALwnocAZen4L7mW1ick
+          </a>
+        </div>
+        <div class="address-item">
+          <span class="address-label">Mint Protocol</span>
+          <a href="https://explorer.mainnet.x1.xyz/address/8iq6zqaEVcfaym2u8t939PAN5jmfPVc6Z333RuxKTTZX" target="_blank" class="contract-address">
+            <i class="fas fa-external-link-alt"></i>
+            8iq6zqaEVcfaym2u8t939PAN5jmfPVc6Z333RuxKTTZX
+          </a>
+        </div>
+        <div class="address-item">
+          <span class="address-label">Burn Protocol</span>
+          <a href="https://explorer.mainnet.x1.xyz/address/2sb3gz5Cmr2g1ia5si2rmCZqPACxgaZXEmiS5k6Htcvh" target="_blank" class="contract-address">
+            <i class="fas fa-external-link-alt"></i>
+            2sb3gz5Cmr2g1ia5si2rmCZqPACxgaZXEmiS5k6Htcvh
+          </a>
+        </div>
+      </div>
     </div>
 
     <div class="card">
